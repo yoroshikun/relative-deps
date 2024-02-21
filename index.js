@@ -7,8 +7,16 @@ const globby = require("globby")
 const checksum = require("checksum")
 const merge = require("lodash/merge")
 const debounce = require("lodash/debounce")
-const { spawn } = require("yarn-or-npm")
 const tar = require("tar")
+
+function spawn (args, options = {}) {
+  const [command, ...rest] = args
+  return child_process.spawnSync(`pnpm ${command}`, rest, {
+    stdio: "inherit",
+    shell: true,
+    ...options
+  })
+}
 
 async function installRelativeDeps() {
   const projectPkgJson = readPkgUp.sync()
@@ -125,7 +133,7 @@ function buildLibrary(name, dir) {
   // Run install if never done before
   if (!fs.existsSync(path.join(dir, "node_modules"))) {
     console.log(`[relative-deps] Running 'install' in ${dir}`)
-    spawn.sync(["install"], { cwd: dir, stdio: [0, 1, 2] })
+    spawn(["install"], { cwd: dir, stdio: [0, 1, 2] })
   }
 
   // Run build script if present
@@ -136,7 +144,7 @@ function buildLibrary(name, dir) {
   }
   if (libraryPkgJson.scripts && libraryPkgJson.scripts.build) {
     console.log(`[relative-deps] Building ${name} in ${dir}`)
-    spawn.sync(["run", "build"], { cwd: dir, stdio: [0, 1, 2] })
+    spawn(["run", "build"], { cwd: dir, stdio: [0, 1, 2] })
   }
 }
 
@@ -145,7 +153,7 @@ function packAndInstallLibrary(name, dir, targetDir) {
   let fullPackageName
   try {
     console.log("[relative-deps] Copying to local node_modules")
-    spawn.sync(["pack"], { cwd: dir, stdio: [0, 1, 2] })
+    spawn(["pack"], { cwd: dir, stdio: [0, 1, 2] })
 
     if (fs.existsSync(libDestDir)) {
       // TODO: should we really remove it? Just overwritting could be fine
@@ -216,7 +224,7 @@ function installRelativeDepsPackage() {
     (pkg.dependencies && pkg.dependencies["relative-deps"])
   )) {
     console.log('[relative-deps] Installing relative-deps package')
-    spawn.sync(["add", "-D", "relative-deps"])
+    spawn(["add", "-D", "relative-deps"])
   }
 }
 
@@ -241,7 +249,7 @@ async function addRelativeDeps({ paths, dev, script }) {
 
   if (!paths || paths.length === 0) {
     console.log(`[relative-deps][WARN] no paths provided running ${script}`)
-    spawn.sync([script])
+    spawn([script])
     return
   }
   const libraries = paths.map(relPath => {
@@ -270,7 +278,7 @@ async function addRelativeDeps({ paths, dev, script }) {
   libraries.forEach(library => {
     if (!pkg[depsKey][library.name]) {
       try {
-        spawn.sync(["add", ...[dev ? ["-D"] : []], library.name], { stdio: "ignore" })
+        spawn(["add", ...[dev ? ["-D"] : []], library.name], { stdio: "ignore" })
       } catch (_e) {
         console.log(`[relative-deps][WARN] Unable to fetch ${library.name} from registry. Installing as a relative dependency only.`)
       }
